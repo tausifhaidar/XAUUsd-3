@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XAU/USD Scalping Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#FFD700;--gold-dim:#B8960C;--buy:#00FF9D;--sell:#FF3A5C;--wait:#888;
+    --bg:#050508;--panel:#0A0A0F;--panel2:#0F0F18;--border:rgba(255,215,0,0.12);--text:#C8C8D8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,215,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,215,0,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .wrap{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:12px;}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--gold),#a07800);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(255,215,0,0.3);}
+  .logo h1{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 20px rgba(255,215,0,0.4);}
+  .logo p{font-size:0.65rem;color:var(--gold-dim);letter-spacing:2px;}
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.25);border-radius:20px;padding:4px 11px;font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--buy);}
+  .live-dot{width:6px;height:6px;background:var(--buy);border-radius:50%;animation:pulse 1s infinite;box-shadow:0 0 6px var(--buy);}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+  .clock{font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--gold-dim);}
+
+  /* STATUS */
+  .status-bar{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .src-badge{padding:3px 10px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:0.68rem;font-weight:700;}
+  .src-badge.ok{background:rgba(0,255,157,.1);color:var(--buy);}
+  .src-badge.err{background:rgba(255,58,92,.1);color:var(--sell);}
+  .src-badge.trying{background:rgba(255,215,0,.1);color:var(--gold);}
+  #fetch-status{color:var(--wait);font-size:0.72rem;font-family:'Share Tech Mono',monospace;flex:1;}
+  .scalp-badge{padding:3px 10px;border-radius:6px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--gold);margin-left:auto;}
+
+  /* MAIN SIGNAL — BIG */
+  .big-signal{border-radius:18px;padding:24px;text-align:center;margin-bottom:14px;border:2px solid var(--border);transition:all .4s;position:relative;overflow:hidden;}
+  .big-signal::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .4s;}
+  .big-signal.buy{border-color:rgba(0,255,157,.5);box-shadow:0 0 50px rgba(0,255,157,.1);}
+  .big-signal.buy::before{background:radial-gradient(ellipse at center,rgba(0,255,157,.05),transparent 70%);opacity:1;}
+  .big-signal.sell{border-color:rgba(255,58,92,.5);box-shadow:0 0 50px rgba(255,58,92,.1);}
+  .big-signal.sell::before{background:radial-gradient(ellipse at center,rgba(255,58,92,.05),transparent 70%);opacity:1;}
+  .big-signal.wait{border-color:rgba(136,136,136,.2);}
+  .bs-label{font-size:0.65rem;letter-spacing:4px;color:var(--wait);margin-bottom:6px;}
+  .bs-main{font-family:'Orbitron',monospace;font-size:2.8rem;font-weight:900;letter-spacing:6px;transition:all .4s;}
+  .bs-main.buy{color:var(--buy);animation:gbuy 1.5s infinite;}
+  .bs-main.sell{color:var(--sell);animation:gsell 1.5s infinite;}
+  .bs-main.wait{color:var(--wait);}
+  @keyframes gbuy{0%,100%{text-shadow:0 0 30px rgba(0,255,157,.6)}50%{text-shadow:0 0 60px rgba(0,255,157,1),0 0 100px rgba(0,255,157,.4)}}
+  @keyframes gsell{0%,100%{text-shadow:0 0 30px rgba(255,58,92,.6)}50%{text-shadow:0 0 60px rgba(255,58,92,1),0 0 100px rgba(255,58,92,.4)}}
+  .bs-reason{font-size:0.85rem;color:var(--text);margin-top:6px;letter-spacing:.5px;}
+  .bs-timer{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--gold-dim);margin-top:4px;}
+
+  /* LEVELS ROW */
+  .levels-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+  .lv-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
+  .lv-label{font-size:0.6rem;letter-spacing:2px;color:var(--wait);margin-bottom:4px;}
+  .lv-val{font-family:'Share Tech Mono',monospace;font-size:1rem;font-weight:700;}
+  .lv-val.e{color:var(--gold);}
+  .lv-val.s{color:var(--sell);}
+  .lv-val.t{color:var(--buy);}
+  .lv-val.r{color:#aaa;}
+
+  /* PRICE + INDICATORS */
+  .mid-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+  @media(max-width:650px){.mid-grid{grid-template-columns:1fr 1fr;}.levels-row{grid-template-columns:1fr 1fr;}}
+  @media(max-width:400px){.mid-grid{grid-template-columns:1fr;}}
+
+  .ind-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .ind-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .ind-name{font-size:0.62rem;letter-spacing:2px;color:var(--wait);}
+  .ind-badge{font-size:0.58rem;padding:2px 7px;border-radius:6px;font-weight:700;letter-spacing:1px;}
+  .ind-badge.bull{background:rgba(0,255,157,.12);color:var(--buy);}
+  .ind-badge.bear{background:rgba(255,58,92,.12);color:var(--sell);}
+  .ind-badge.neut{background:rgba(136,136,136,.12);color:var(--wait);}
+  .ind-val{font-family:'Share Tech Mono',monospace;font-size:1.5rem;color:#fff;margin-bottom:4px;}
+  .ind-sub{font-size:0.72rem;color:var(--wait);}
+
+  .rsi-track{height:4px;background:rgba(255,255,255,.05);border-radius:2px;position:relative;margin-top:8px;}
+  .rsi-inner{position:absolute;inset:0;display:flex;overflow:hidden;border-radius:2px;}
+  .rz-s{width:30%;background:rgba(255,58,92,.25);}
+  .rz-n{width:40%;}
+  .rz-b{width:30%;background:rgba(0,255,157,.25);}
+  .rsi-ptr{position:absolute;top:-5px;width:13px;height:13px;background:var(--gold);border:2px solid var(--bg);border-radius:50%;transform:translateX(-50%);transition:left .5s;box-shadow:0 0 8px var(--gold);}
+  .rsi-lbs{display:flex;justify-content:space-between;margin-top:7px;font-size:0.58rem;color:var(--wait);}
+
+  /* PRICE CARD */
+  .price-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .p-label{font-size:0.6rem;letter-spacing:2px;color:var(--gold-dim);margin-bottom:4px;}
+  .p-big{font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:700;color:#fff;transition:color .2s;}
+  .p-big.up{color:var(--buy);}
+  .p-big.down{color:var(--sell);}
+  .p-chg{display:flex;gap:8px;margin-top:5px;}
+  .chg{font-family:'Share Tech Mono',monospace;font-size:0.78rem;padding:2px 7px;border-radius:4px;}
+  .chg.up{background:rgba(0,255,157,.1);color:var(--buy);}
+  .chg.down{background:rgba(255,58,92,.1);color:var(--sell);}
+  .p-meta{display:flex;gap:0;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+  .pm{flex:1;text-align:center;}
+  .pm-l{font-size:0.58rem;letter-spacing:1px;color:var(--wait);margin-bottom:2px;}
+  .pm-v{font-family:'Share Tech Mono',monospace;font-size:0.78rem;color:var(--gold);}
+
+  /* EMA CARD */
+  .ema-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .ema-rows{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
+  .ema-row{display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;}
+  .ema-n{color:var(--wait);}
+  .ema-v{font-family:'Share Tech Mono',monospace;color:#ccc;}
+  .ema-cross{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:0.78rem;text-align:center;font-weight:600;letter-spacing:1px;}
+
+  /* CONDITIONS CHECKLIST */
+  .conditions{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+  .cond-title{font-family:'Orbitron',monospace;font-size:0.65rem;letter-spacing:2px;color:var(--gold-dim);margin-bottom:10px;}
+  .cond-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .cond-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel2);border-radius:8px;border:1px solid transparent;transition:all .3s;}
+  .cond-item.pass{border-color:rgba(0,255,157,.2);background:rgba(0,255,157,.04);}
+  .cond-item.fail{border-color:rgba(255,58,92,.15);}
+  .cond-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:all .3s;}
+  .cond-dot.pass{background:var(--buy);box-shadow:0 0 6px var(--buy);}
+  .cond-dot.fail{background:#444;}
+  .cond-txt{font-size:0.75rem;color:var(--text);}
+  .cond-score{text-align:center;margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--gold-dim);}
+
+  /* CHART */
+  .chart-wrap{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+  .chart-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);}
+  .chart-title{font-family:'Orbitron',monospace;font-size:0.65rem;letter-spacing:2px;color:var(--gold-dim);}
+
+  /* LOG */
+  .log-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+  .sec-title{font-family:'Orbitron',monospace;font-size:0.65rem;letter-spacing:3px;color:var(--gold-dim);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+  .sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+  .log-list{display:flex;flex-direction:column;gap:7px;max-height:200px;overflow-y:auto;}
+  .log-list::-webkit-scrollbar{width:3px;}
+  .log-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .log-item{display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--panel2);border-radius:8px;border-left:3px solid transparent;animation:si .3s ease;}
+  @keyframes si{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  .log-item.buy{border-left-color:var(--buy);}
+  .log-item.sell{border-left-color:var(--sell);}
+  .log-time{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--wait);min-width:52px;}
+  .log-sig{font-size:0.68rem;font-weight:700;min-width:52px;}
+  .log-sig.buy{color:var(--buy);}
+  .log-sig.sell{color:var(--sell);}
+  .log-price{font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--gold);}
+  .log-why{font-size:0.72rem;color:#666;flex:1;}
+  .log-pips{font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--gold-dim);}
+
+  /* NOTIF */
+  .notif{position:fixed;top:16px;right:16px;z-index:999;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 18px;min-width:270px;box-shadow:0 20px 50px rgba(0,0,0,.7);display:flex;align-items:center;gap:12px;transform:translateX(130%);transition:transform .4s cubic-bezier(.175,.885,.32,1.275);}
+  .notif.show{transform:none;}
+  .notif.buy{border-left:4px solid var(--buy);box-shadow:0 0 30px rgba(0,255,157,.15);}
+  .notif.sell{border-left:4px solid var(--sell);box-shadow:0 0 30px rgba(255,58,92,.15);}
+  .notif h4{font-family:'Orbitron',monospace;font-size:0.85rem;color:#fff;margin-bottom:3px;}
+  .notif p{font-size:0.75rem;color:var(--text);}
+
+  footer{text-align:center;padding:14px 0;border-top:1px solid var(--border);font-size:0.68rem;color:var(--wait);}
+  footer span{color:var(--gold-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1>XAU/USD SCALPING PRO</h1>
+        <p>5MIN SCALP · EMA CROSS · RSI FILTER</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="clock" id="clock">--:--:-- IST</div>
+    </div>
+  </header>
+
+  <!-- STATUS -->
+  <div class="status-bar">
+    <span style="color:var(--gold-dim);font-size:0.68rem;letter-spacing:1px;">SOURCE:</span>
+    <span class="src-badge trying" id="src-badge">🔄 CONNECTING...</span>
+    <span id="fetch-status">Fetching XAU/USD...</span>
+    <span class="scalp-badge">⚡ SCALP MODE · 5-15 MIN</span>
+  </div>
+
+  <!-- BIG SIGNAL -->
+  <div class="big-signal wait" id="big-signal">
+    <div class="bs-label">SCALPING SIGNAL</div>
+    <div class="bs-main wait" id="bs-main">⏳ SCANNING</div>
+    <div class="bs-reason" id="bs-reason">Collecting price data...</div>
+    <div class="bs-timer" id="bs-timer"></div>
+  </div>
+
+  <!-- ENTRY LEVELS -->
+  <div class="levels-row" id="levels-row" style="display:none">
+    <div class="lv-card">
+      <div class="lv-label">ENTRY</div>
+      <div class="lv-val e" id="lv-e">—</div>
+    </div>
+    <div class="lv-card">
+      <div class="lv-label">STOP LOSS</div>
+      <div class="lv-val s" id="lv-sl">—</div>
+      <div style="font-size:0.6rem;color:var(--wait);margin-top:2px" id="sl-pips">— pips</div>
+    </div>
+    <div class="lv-card">
+      <div class="lv-label">TAKE PROFIT</div>
+      <div class="lv-val t" id="lv-tp">—</div>
+      <div style="font-size:0.6rem;color:var(--wait);margin-top:2px" id="tp-pips">— pips</div>
+    </div>
+    <div class="lv-card">
+      <div class="lv-label">RR RATIO</div>
+      <div class="lv-val r" id="lv-rr">1:1.5</div>
+    </div>
+  </div>
+
+  <!-- CONDITIONS CHECKLIST -->
+  <div class="conditions">
+    <div class="cond-title">⚡ SIGNAL CONDITIONS</div>
+    <div class="cond-grid">
+      <div class="cond-item fail" id="c1">
+        <div class="cond-dot fail" id="c1d"></div>
+        <div class="cond-txt" id="c1t">EMA 5 > EMA 13</div>
+      </div>
+      <div class="cond-item fail" id="c2">
+        <div class="cond-dot fail" id="c2d"></div>
+        <div class="cond-txt" id="c2t">RSI 40–60 zone</div>
+      </div>
+      <div class="cond-item fail" id="c3">
+        <div class="cond-dot fail" id="c3d"></div>
+        <div class="cond-txt" id="c3t">Price > EMA 50</div>
+      </div>
+      <div class="cond-item fail" id="c4">
+        <div class="cond-dot fail" id="c4d"></div>
+        <div class="cond-txt" id="c4t">Momentum bullish</div>
+      </div>
+    </div>
+    <div class="cond-score" id="cond-score">Conditions: 0/4</div>
+  </div>
+
+  <!-- MID GRID: Price + RSI + EMA -->
+  <div class="mid-grid">
+    <!-- PRICE -->
+    <div class="price-card">
+      <div class="p-label">XAU/USD LIVE</div>
+      <div class="p-big" id="p-big">—</div>
+      <div class="p-chg">
+        <div class="chg" id="p-chg">—</div>
+        <div class="chg" id="p-pct">—</div>
+      </div>
+      <div class="p-meta">
+        <div class="pm"><div class="pm-l">HIGH</div><div class="pm-v" id="p-high">—</div></div>
+        <div class="pm"><div class="pm-l">LOW</div><div class="pm-v" id="p-low">—</div></div>
+        <div class="pm"><div class="pm-l">PREV</div><div class="pm-v" id="p-prev">—</div></div>
+      </div>
+    </div>
+
+    <!-- RSI -->
+    <div class="ind-card">
+      <div class="ind-top">
+        <div class="ind-name">RSI (7) SCALP</div>
+        <div class="ind-badge neut" id="rsi-badge">—</div>
+      </div>
+      <div class="ind-val" id="rsi-val">—</div>
+      <div class="ind-sub" id="rsi-sub">Waiting...</div>
+      <div class="rsi-track">
+        <div class="rsi-inner"><div class="rz-s"></div><div class="rz-n"></div><div class="rz-b"></div></div>
+        <div class="rsi-ptr" id="rsi-ptr" style="left:50%"></div>
+      </div>
+      <div class="rsi-lbs"><span>0</span><span>30</span><span>50</span><span>70</span><span>100</span></div>
+    </div>
+
+    <!-- EMA -->
+    <div class="ema-card">
+      <div class="ind-top">
+        <div class="ind-name">EMA SCALP</div>
+        <div class="ind-badge neut" id="ema-badge">—</div>
+      </div>
+      <div class="ema-rows">
+        <div class="ema-row"><span class="ema-n">EMA 5</span><span class="ema-v" id="e5">—</span></div>
+        <div class="ema-row"><span class="ema-n">EMA 13</span><span class="ema-v" id="e13">—</span></div>
+        <div class="ema-row"><span class="ema-n">EMA 50</span><span class="ema-v" id="e50">—</span></div>
+      </div>
+      <div class="ema-cross" id="ema-cross" style="color:var(--wait)">— NO CROSS —</div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-wrap">
+    <div class="chart-hdr">
+      <div class="chart-title">XAU/USD — 5MIN SCALPING CHART</div>
+      <div style="font-size:0.65rem;color:var(--wait)">EMA 5 · EMA 13 · RSI</div>
+    </div>
+    <div id="tradingview_scalp"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    new TradingView.widget({
+      "width": "100%",
+      "height": 380,
+      "symbol": "OANDA:XAUUSD",
+      "interval": "5",
+      "timezone": "Asia/Kolkata",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "toolbar_bg": "#050508",
+      "enable_publishing": false,
+      "hide_top_toolbar": false,
+      "container_id": "tradingview_scalp",
+      "studies": [
+        "RSI@tv-basicstudies",
+        "MAExp@tv-basicstudies",
+        "MAExp@tv-basicstudies"
+      ]
+    });
+    </script>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-section">
+    <div class="sec-title">Scalp Signal History</div>
+    <div class="log-list" id="log-list">
+      <div style="text-align:center;color:var(--wait);font-size:0.8rem;padding:14px">Scalp signals will appear here...</div>
+    </div>
+  </div>
+
+  <!-- STRATEGY INFO -->
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
+    <div class="sec-title">⚡ Scalping Strategy Rules</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="background:var(--panel2);border-radius:10px;padding:12px;border-left:3px solid var(--buy);">
+        <div style="font-size:0.68rem;letter-spacing:2px;color:var(--buy);margin-bottom:8px;">🟢 BUY SETUP</div>
+        <div style="font-size:0.78rem;color:var(--text);line-height:1.7;">
+          ▸ EMA 5 crosses above EMA 13<br>
+          ▸ Price above EMA 50<br>
+          ▸ RSI between 45–65<br>
+          ▸ Enter on next candle<br>
+          ▸ SL: 5–8 pips below EMA 5<br>
+          ▸ TP: 8–12 pips
+        </div>
+      </div>
+      <div style="background:var(--panel2);border-radius:10px;padding:12px;border-left:3px solid var(--sell);">
+        <div style="font-size:0.68rem;letter-spacing:2px;color:var(--sell);margin-bottom:8px;">🔴 SELL SETUP</div>
+        <div style="font-size:0.78rem;color:var(--text);line-height:1.7;">
+          ▸ EMA 5 crosses below EMA 13<br>
+          ▸ Price below EMA 50<br>
+          ▸ RSI between 35–55<br>
+          ▸ Enter on next candle<br>
+          ▸ SL: 5–8 pips above EMA 5<br>
+          ▸ TP: 8–12 pips
+        </div>
+      </div>
+      <div style="background:var(--panel2);border-radius:10px;padding:12px;border-left:3px solid var(--gold);grid-column:1/-1">
+        <div style="font-size:0.68rem;letter-spacing:2px;color:var(--gold);margin-bottom:8px;">🛡️ SCALPING RISK RULES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:0.75rem;color:var(--text);">
+          <div>⏰ Best time:<br><span style="color:var(--gold)">London + NY open</span></div>
+          <div>💰 Max risk:<br><span style="color:var(--gold)">0.5–1% per trade</span></div>
+          <div>🚫 Avoid:<br><span style="color:var(--gold)">News time ±30min</span></div>
+          <div>📊 Max trades:<br><span style="color:var(--gold)">5–8 per day</span></div>
+          <div>⚡ Hold time:<br><span style="color:var(--gold)">5–15 minutes</span></div>
+          <div>❌ Daily loss:<br><span style="color:var(--gold)">Stop at 2% loss</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>XAU/USD Scalping Pro · EMA Cross + RSI Strategy · <span>⚠️ Educational only — Not financial advice</span></footer>
+</div>
+
+<!-- NOTIF -->
+<div class="notif" id="notif">
+  <div style="font-size:1.8rem" id="n-icon">📡</div>
+  <div>
+    <h4 id="n-title">Signal</h4>
+    <p id="n-msg">—</p>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let priceHistory = [];
+let lastSignal = 'wait';
+let signalTime = null;
+let loopTimer = null;
+
+// ── CLOCK ──
+setInterval(()=>{
+  const ist=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  document.getElementById('clock').textContent=ist.toTimeString().slice(0,8)+' IST';
+  // Signal timer
+  if(signalTime && lastSignal !== 'wait'){
+    const elapsed = Math.floor((Date.now()-signalTime)/1000);
+    const min = Math.floor(elapsed/60), sec = elapsed%60;
+    document.getElementById('bs-timer').textContent = `⏱ Signal age: ${min}m ${sec}s`;
+  }
+},1000);
+
+// ── FETCH PRICE ──
+async function fetchPrice(){
+  // Source 1: metals.live
+  try{
+    const r=await fetch('https://api.metals.live/v1/spot/gold',{cache:'no-store'});
+    if(r.ok){
+      const d=await r.json();
+      const p=parseFloat(Array.isArray(d)?d[0]?.price:d?.price);
+      if(p>1500&&p<5000) return{price:p,source:'metals.live',open:null,high:null,low:null,prev:null};
+    }
+  }catch(e){}
+
+  // Source 2: Frankfurter
+  try{
+    const r=await fetch('https://api.frankfurter.app/latest?from=XAU&to=USD',{cache:'no-store'});
+    if(r.ok){
+      const d=await r.json();
+      const p=parseFloat(d?.rates?.USD);
+      if(p>1500&&p<5000) return{price:p,source:'Frankfurter',open:null,high:null,low:null,prev:null};
+    }
+  }catch(e){}
+
+  // Source 3: corsproxy → Yahoo
+  try{
+    const t=encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1m&range=1d');
+    const r=await fetch('https://corsproxy.io/?'+t,{cache:'no-store'});
+    if(r.ok){
+      const d=await r.json();
+      const m=d?.chart?.result?.[0]?.meta;
+      const p=m?.regularMarketPrice;
+      if(p>1500&&p<5000) return{price:p,source:'Yahoo Finance',open:m?.chartPreviousClose,high:m?.regularMarketDayHigh,low:m?.regularMarketDayLow,prev:m?.chartPreviousClose};
+    }
+  }catch(e){}
+
+  // Source 4: thingproxy → Yahoo
+  try{
+    const r=await fetch('https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1m&range=1d',{cache:'no-store'});
+    if(r.ok){
+      const d=await r.json();
+      const m=d?.chart?.result?.[0]?.meta;
+      const p=m?.regularMarketPrice;
+      if(p>1500&&p<5000) return{price:p,source:'Yahoo(P2)',open:m?.chartPreviousClose,high:m?.regularMarketDayHigh,low:m?.regularMarketDayLow,prev:m?.chartPreviousClose};
+    }
+  }catch(e){}
+
+  throw new Error('All sources failed');
+}
+
+// ── INDICATORS ──
+function ema(arr,n){
+  if(arr.length<n) return null;
+  const k=2/(n+1);
+  let e=arr.slice(0,n).reduce((a,b)=>a+b)/n;
+  for(let i=n;i<arr.length;i++) e=arr[i]*k+e*(1-k);
+  return e;
+}
+function rsi(arr,n=7){
+  if(arr.length<n+1) return 50;
+  let g=0,l=0;
+  for(let i=arr.length-n;i<arr.length;i++){const d=arr[i]-arr[i-1];d>0?g+=d:l-=d;}
+  if(l===0) return 100;
+  return 100-(100/(1+(g/n)/(l/n)));
+}
+
+// ── SCALPING SIGNAL LOGIC ──
+function computeSignal(price, hist){
+  if(hist.length<15) return{
+    type:'wait', reason:`Warming up (${hist.length}/15 ticks)...`,
+    c1:false,c2:false,c3:false,c4:false,
+    rsi:50,e5:null,e13:null,e50:null
+  };
+
+  const r = rsi(hist, 7);  // Fast RSI for scalping
+  const e5  = ema(hist, 5);
+  const e13 = ema(hist, 13);
+  const e50 = ema(hist, Math.min(50, hist.length));
+
+  const SL_PIPS = 7;  // Scalping: tight SL
+  const TP_PIPS = 11; // 1:1.5 RR
+
+  // BUY conditions
+  const bc1 = (e5||0) > (e13||0);           // EMA5 > EMA13
+  const bc2 = r > 42 && r < 65;             // RSI not overbought
+  const bc3 = price > (e50||price);          // Above EMA50
+  const bc4 = hist[hist.length-1] > hist[hist.length-2]; // Last tick up (momentum)
+
+  // SELL conditions
+  const sc1 = (e5||0) < (e13||0);
+  const sc2 = r > 35 && r < 58;
+  const sc3 = price < (e50||price);
+  const sc4 = hist[hist.length-1] < hist[hist.length-2];
+
+  const buyScore  = [bc1,bc2,bc3,bc4].filter(Boolean).length;
+  const sellScore = [sc1,sc2,sc3,sc4].filter(Boolean).length;
+
+  let type='wait', reason='', c1=false, c2=false, c3=false, c4=false;
+
+  if(buyScore >= 4){
+    type='buy'; c1=bc1; c2=bc2; c3=bc3; c4=bc4;
+    reason=`EMA5>EMA13 · RSI ${r.toFixed(0)} · Momentum UP · Above EMA50`;
+  } else if(sellScore >= 4){
+    type='sell'; c1=sc1; c2=sc2; c3=sc3; c4=sc4;
+    reason=`EMA5<EMA13 · RSI ${r.toFixed(0)} · Momentum DOWN · Below EMA50`;
+  } else if(buyScore===3){
+    type='wait'; c1=bc1; c2=bc2; c3=bc3; c4=bc4;
+    reason=`BUY almost ready (${buyScore}/4) · RSI:${r.toFixed(0)} · 1 condition pending`;
+  } else if(sellScore===3){
+    type='wait'; c1=sc1; c2=sc2; c3=sc3; c4=sc4;
+    reason=`SELL almost ready (${sellScore}/4) · RSI:${r.toFixed(0)} · 1 condition pending`;
+  } else {
+    reason=`No setup · RSI:${r.toFixed(0)} · Buy:${buyScore}/4 Sell:${sellScore}/4`;
+    c1=bc1; c2=bc2; c3=bc3; c4=bc4;
+  }
+
+  return{
+    type, reason, rsi:r, c1, c2, c3, c4,
+    e5: e5?.toFixed(2), e13: e13?.toFixed(2), e50: e50?.toFixed(2),
+    above50: price>(e50||price),
+    entry: type!=='wait'?price.toFixed(2):null,
+    sl: type==='buy'?(price-SL_PIPS*0.1).toFixed(2):type==='sell'?(price+SL_PIPS*0.1).toFixed(2):null,
+    tp: type==='buy'?(price+TP_PIPS*0.1).toFixed(2):type==='sell'?(price-TP_PIPS*0.1).toFixed(2):null,
+  };
+}
+
+// ── UPDATE UI ──
+function setCond(id, pass, txt){
+  const el=document.getElementById(id), dot=document.getElementById(id+'d'), t=document.getElementById(id+'t');
+  el.className='cond-item '+(pass?'pass':'fail');
+  dot.className='cond-dot '+(pass?'pass':'fail');
+  if(txt) t.textContent=txt;
+}
+
+function updateUI(data, an){
+  const{price,high,low,prev}=data;
+  const prevP=priceHistory[priceHistory.length-2];
+
+  // Price
+  const pb=document.getElementById('p-big');
+  pb.textContent=price.toFixed(2);
+  pb.className='p-big'+(prevP?(price>=prevP?' up':' down'):'');
+
+  if(prev){
+    const diff=price-prev,pct=diff/prev*100;
+    const cv=document.getElementById('p-chg'),cp=document.getElementById('p-pct');
+    cv.textContent=(diff>=0?'+':'')+diff.toFixed(2); cv.className='chg '+(diff>=0?'up':'down');
+    cp.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%'; cp.className='chg '+(pct>=0?'up':'down');
+  }
+  document.getElementById('p-high').textContent=high?.toFixed(2)||'—';
+  document.getElementById('p-low').textContent=low?.toFixed(2)||'—';
+  document.getElementById('p-prev').textContent=prev?.toFixed(2)||'—';
+
+  // Big signal
+  const bs=document.getElementById('big-signal'),bm=document.getElementById('bs-main'),br=document.getElementById('bs-reason');
+  bs.className='big-signal '+an.type; bm.className='bs-main '+an.type;
+  if(an.type==='buy'){bm.textContent='🟢 SCALP BUY';}
+  else if(an.type==='sell'){bm.textContent='🔴 SCALP SELL';}
+  else{bm.textContent='⏳ WAIT'; document.getElementById('bs-timer').textContent='';}
+  br.textContent=an.reason;
+
+  // Levels
+  const lr=document.getElementById('levels-row');
+  if(an.type!=='wait'){
+    lr.style.display='grid';
+    document.getElementById('lv-e').textContent=an.entry;
+    document.getElementById('lv-sl').textContent=an.sl;
+    document.getElementById('lv-tp').textContent=an.tp;
+    const slPips=Math.abs((parseFloat(an.entry)-parseFloat(an.sl))*10).toFixed(0);
+    const tpPips=Math.abs((parseFloat(an.entry)-parseFloat(an.tp))*10).toFixed(0);
+    document.getElementById('sl-pips').textContent=slPips+' pips';
+    document.getElementById('tp-pips').textContent=tpPips+' pips';
+  } else {
+    lr.style.display='none';
+  }
+
+  // Conditions
+  const isBuy = an.type==='buy' || (an.c1 && an.c3); // show buy conditions if leaning buy
+  setCond('c1',an.c1, an.c1?'✓ EMA5 > EMA13':'EMA5 < EMA13');
+  setCond('c2',an.c2, an.c2?'✓ RSI '+an.rsi.toFixed(0)+' in zone':'RSI out of zone');
+  setCond('c3',an.c3, an.c3?'✓ Price > EMA50':'Price < EMA50');
+  setCond('c4',an.c4, an.c4?'✓ Momentum bullish':'Momentum bearish');
+  const score=[an.c1,an.c2,an.c3,an.c4].filter(Boolean).length;
+  document.getElementById('cond-score').textContent=`Conditions met: ${score}/4 ${score===4?'🟢 FULL SIGNAL':score===3?'🟡 Almost...':'⭕ Wait'}`;
+
+  // RSI
+  const r=an.rsi;
+  document.getElementById('rsi-val').textContent=r.toFixed(1);
+  document.getElementById('rsi-ptr').style.left=Math.min(98,Math.max(2,r))+'%';
+  const rb=document.getElementById('rsi-badge'), rs=document.getElementById('rsi-sub');
+  if(r>70){rb.textContent='OVERBOUGHT';rb.className='ind-badge bear';rs.textContent='Avoid BUY';}
+  else if(r<30){rb.textContent='OVERSOLD';rb.className='ind-badge bull';rs.textContent='Avoid SELL';}
+  else if(r>60){rb.textContent='BEARISH';rb.className='ind-badge bear';rs.textContent='Sell zone';}
+  else if(r<40){rb.textContent='BULLISH';rb.className='ind-badge bull';rs.textContent='Buy zone';}
+  else{rb.textContent='NEUTRAL';rb.className='ind-badge neut';rs.textContent='50 zone';}
+
+  // EMA
+  if(an.e5){
+    document.getElementById('e5').textContent=an.e5;
+    document.getElementById('e13').textContent=an.e13;
+    document.getElementById('e50').textContent=an.e50||'—';
+    const eb=document.getElementById('ema-badge'),ec=document.getElementById('ema-cross');
+    if(an.c1){
+      eb.textContent='BULLISH';eb.className='ind-badge bull';
+      ec.textContent='📈 EMA5 ABOVE EMA13';ec.style.color='var(--buy)';
+    } else {
+      eb.textContent='BEARISH';eb.className='ind-badge bear';
+      ec.textContent='📉 EMA5 BELOW EMA13';ec.style.color='var(--sell)';
+    }
+  }
+}
+
+function addLog(type,price,reason){
+  const list=document.getElementById('log-list');
+  if(list.children[0]?.style.textAlign==='center') list.innerHTML='';
+  const t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const el=document.createElement('div');
+  el.className=`log-item ${type}`;
+  el.innerHTML=`<div class="log-time">${t}</div><div class="log-sig ${type}">${type==='buy'?'🟢 BUY':'🔴 SELL'}</div><div class="log-price">${parseFloat(price).toFixed(2)}</div><div class="log-why">${reason.slice(0,50)}</div><div class="log-pips">SL:7p TP:11p</div>`;
+  list.insertBefore(el,list.firstChild);
+  while(list.children.length>30) list.removeChild(list.lastChild);
+}
+
+function showNotif(type,price){
+  const n=document.getElementById('notif');
+  n.className='notif show '+type;
+  document.getElementById('n-icon').textContent=type==='buy'?'🟢':'🔴';
+  document.getElementById('n-title').textContent=type==='buy'?'⚡ SCALP BUY!':'⚡ SCALP SELL!';
+  document.getElementById('n-msg').textContent=`XAU @ ${parseFloat(price).toFixed(2)} · SL:7p · TP:11p`;
+  setTimeout(()=>n.classList.remove('show'),7000);
+}
+
+// ── MAIN LOOP ──
+async function mainLoop(){
+  const sb=document.getElementById('src-badge'),fs=document.getElementById('fetch-status');
+  sb.textContent='🔄 FETCHING...';sb.className='src-badge trying';
+  try{
+    const data=await fetchPrice();
+    sb.textContent='✅ '+data.source;sb.className='src-badge ok';
+    fs.textContent='⚡ Updated: '+new Date().toLocaleTimeString('en-GB');
+
+    priceHistory.push(data.price);
+    if(priceHistory.length>500) priceHistory.shift();
+
+    const an=computeSignal(data.price,priceHistory);
+    updateUI(data,an);
+
+    if(an.type!=='wait'&&an.type!==lastSignal){
+      addLog(an.type,data.price,an.reason);
+      showNotif(an.type,data.price);
+      signalTime=Date.now();
+      lastSignal=an.type;
+    } else if(an.type==='wait'){
+      lastSignal='wait';
+      signalTime=null;
+    }
+
+    loopTimer=setTimeout(mainLoop,8000); // 8 sec refresh for scalping
+  }catch(err){
+    sb.textContent='❌ RETRY...';sb.className='src-badge err';
+    fs.textContent='Error — Retry in 12s';
+    loopTimer=setTimeout(mainLoop,12000);
+  }
+}
+
+mainLoop();
+</script>
+</body>
+</html>
